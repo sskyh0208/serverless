@@ -1,0 +1,87 @@
+services:
+  client:
+    container_name: client
+    build:
+      context: .
+      dockerfile: .docker/node/Dockerfile
+    tty: true
+    volumes:
+      - type: bind
+        source: ./src/client
+        target: /app
+    ports:
+      - target: 3000
+        published: ${WEB_PUBLISHED_PORT:-3000}
+        protocol: tcp
+        mode: host
+    working_dir: /app/
+    # command: npm run dev
+
+  api:
+    container_name: api
+    build:
+      context: ./src/api/python
+      dockerfile: Dockerfile
+      target: dev
+    tty: true
+    volumes:
+      - type: bind
+        source: ./src/api/python
+        target: /api
+      - type: bind
+        source: ./.aws
+        target: /root/.aws
+    ports:
+      - target: 8080
+        published: ${WEB_PUBLISHED_PORT:-8080}
+        protocol: tcp
+        mode: host
+    working_dir: /api
+    env_file:
+      - ./src/api/python/.env
+    command: sh -c "poetry install && uvicorn app.main:app --host 0.0.0.0 --port 8080 --reload"
+
+  # dynamodb-local:
+  #   image: amazon/dynamodb-local
+  #   ports:
+  #     - "8000:8000"
+  #   volumes:
+  #     - "./data:/data"
+  #   command: ["-jar", "DynamoDBLocal.jar", "-sharedDb", "-dbPath", "/data"]
+
+  # dynamodb-admin:
+  #   image: aaronshaf/dynamodb-admin
+  #   ports:
+  #     - "8001:8001"
+  #   environment:
+  #     - DYNAMO_ENDPOINT=http://dynamodb-local:8000
+
+  sam:
+    container_name: sam
+    build:  
+      context: .docker/sam
+      dockerfile: Dockerfile
+    volumes: 
+      - ./src:/home/sam/src
+      - ./.aws:/root/.aws
+    working_dir: /home/sam/src
+    environment:
+      - DOCKER_HOST=tcp://dind:2375
+      - DOCKER_DRIVER=overlay
+    tty: true
+    depends_on:
+      - dind
+    networks:
+      - dind-network
+
+  dind:
+    image: docker:dind
+    privileged: true
+    environment:
+      - DOCKER_TLS_CERTDIR=
+    networks:
+      - dind-network
+
+networks:
+  dind-network:
+    driver: bridge

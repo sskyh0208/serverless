@@ -1,0 +1,108 @@
+name: プルリクエストにTerraformのプラン結果をコメントする
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - staging
+      - main
+    types:
+      - reopened
+      - opened
+      - ready_for_review
+    paths:
+      - 'src/terraform/**'
+
+run-name: Terraformプラン ---> ${{ github.head_ref }}
+
+env:
+  TF_VERSION: 1.8.0
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  AWS_IAM_ROLE_ARN: ${{ secrets.AWS_IAM_ROLE_ARN }}
+
+  WORK_DIR: |-
+    ${{ fromJSON('{
+      "develop": "src/terraform/dev",
+      "staging": "src/terraform/stg",
+      "main": "src/terraform/prod",
+    }')[github.base_ref] }}
+
+jobs:
+  terraform:
+    name: terraform
+    runs-on: ubuntu-22.04
+    permissions:
+      id-token: write
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ env.AWS_IAM_ROLE_ARN }}
+          role-session-name: GitHubActions-${{ github.run_id }}
+
+      - name: Terraform setup
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform fmt
+        id: fmt
+        working-directory: ${{ env.WORK_DIR }}
+        run: terraform fmt -check
+        continue-on-error: true
+      
+      - name: Terraform Init
+        id: init
+        working-directory: ${{ env.WORK_DIR }}
+        run: terraform init
+      
+      - name: Terraform Validate
+        id: validate
+        working-directory: ${{ env.WORK_DIR }}
+        run: terraform validate -no-color
+      
+      - name: Terraform Plan
+        id: plan
+        working-directory: ${{ env.WORK_DIR }}
+        run: terraform plan -no-color
+        continue-on-error: true
+      
+      - uses: actions/github-script@v6
+        if: github.event_name == 'pull_request'
+        env:
+          PLAN: "terraform\n${{ steps.plan.outputs.stdout }}"
+        with:
+          script: |
+            const output = `#### Terraform フォーマットとスタイル 🖌\`${{ steps.fmt.outcome }}\`
+            #### Terraform 初期化 ⚙️\`${{ steps.init.outcome }}\`
+            #### Terraform 検証 🤖\`${{ steps.validate.outcome }}\`
+            <details><summary>検証結果</summary>
+
+            \`\`\`
+            ${{ steps.validate.outputs.stdout }}
+            \`\`\`
+
+            </details>
+
+            #### Terraform プラン 📖\`${{ steps.plan.outcome }}\`
+
+            <details><summary>プラン詳細を表示</summary>
+
+            \`\`\`
+            ${process.env.PLAN}
+            \`\`\`
+
+            </details>
+
+            *プッシュ実行者: @${{ github.actor }}, アクション: \`${{ github.event_name }}\`, 作業ディレクトリ: \`${{ env.WORK_DIR }}\`, ワークフロー: \`${{ github.workflow }}\`*`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            })

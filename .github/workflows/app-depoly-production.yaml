@@ -1,0 +1,99 @@
+name: アプリケーションを本番環境にデプロイ
+
+on:
+  workflow_dispatch:
+    inputs:
+      env:
+        description: '本番環境へアプリケーションをデプロイします。 「production」と人力してください。'
+        required: true
+
+run-name: アプリケーションデプロイ ---> 本番環境
+
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  AWS_IAM_ROLE_ARN: ${{ secrets.AWS_IAM_ROLE_ARN }}
+
+  NODE_VERSION: 20
+  SOURCE_DIR: src/app
+
+  SSM_PARAMETER_BUCKET_NAME: /spa/prod/s3/web_origin/bucket_name
+  SSM_PARAMETER_CLOUDFRONT_ID: /spa/prod/cloudfront/web_hosting/distribution_id
+
+  SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+  SLACK_USERNAME: GitHub Actions
+  SLACK_SUCCESS_MESSAGE: "本番環境のSPAをS3にデプロイしました。"
+  SLACK_FAILURE_MESSAGE: "本番環境のSPAのデプロイに失敗しました."
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      # 入力値チェック
+      - name: Target validate
+        if: ${{ github.event.inputs.env != 'production' && github.event_name != 'push' }}
+        run: exit 1
+
+      # チェックアウト
+      - name: Checkout Branch
+        uses: actions/checkout@v4
+
+      # Node.jsのセットアップ
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      
+      # ODICによるAWS認証
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ env.AWS_IAM_ROLE_ARN }}
+          role-session-name: GitHubActions-${{ github.run_id }}
+      
+      # ビルド
+      - name: Build
+        working-directory: ${{ env.SOURCE_DIR }}
+        run: |
+          npm install
+          npm run build
+
+      # SSMパラメータストアから値を取得し、環境変数にセット
+      - name: Get SSM Parameter
+        id: get_ssm_parameter
+        run: |
+          S3_BUCKET_NAME=$(aws ssm get-parameter --name ${{ env.SSM_PARAMETER_BUCKET_NAME }} --query Parameter.Value --output text)
+          CLOUDFRONT_DISTRIBUTION_ID=$(aws ssm get-parameter --name ${{ env.SSM_PARAMETER_CLOUDFRONT_ID }} --query Parameter.Value --output text)
+          echo "S3_BUCKET_NAME=$S3_BUCKET_NAME" >> $GITHUB_OUTPUT
+          echo "CLOUDFRONT_DISTRIBUTION_ID=$CLOUDFRONT_DISTRIBUTION_ID" >> $GITHUB_OUTPUT
+
+      # S3へのデプロイ
+      - name: Deploy Next.js to S3
+        working-directory: ${{ env.SOURCE_DIR }}
+        run: |
+          aws s3 sync --region ${{ env.AWS_REGION }} out s3://${{ steps.get_ssm_parameter.outputs.S3_BUCKET_NAME }} --delete
+      
+      # CloudFrontのキャッシュ削除
+      - name: Invalidate CloudFront
+        run: |
+          aws cloudfront create-invalidation --distribution-id ${{ steps.get_ssm_parameter.outputs.CLOUDFRONT_DISTRIBUTION_ID }} --paths "/*"
+
+      # Slack通知
+      - name: Slack notification on success
+        if: ${{ success() }}
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_USERNAME: ${{ env.SLACK_USERNAME }}
+          SLACK_COLOR: good
+          SLACK_MESSAGE: ${{ env.SLACK_SUCCESS_MESSAGE }}
+
+      - name: Slack notification on failure
+        if: ${{ failure() }}
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_USERNAME: ${{ env.SLACK_USERNAME }}
+          SLACK_COLOR: danger
+          SLACK_MESSAGE: ${{ env.SLACK_FAILURE_MESSAGE }}
+          

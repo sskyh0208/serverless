@@ -1,0 +1,96 @@
+name: Terraformで検証環境のインフラをデプロイ
+
+on:
+  workflow_dispatch:
+    inputs:
+      env:
+        description: '検証環境のインフラをデプロイします。 「develop」と人力してください。'
+        required: true
+  push:
+    branches:
+      - develop
+    paths:
+      - 'src/terraform/**'
+
+run-name: Terraformデプロイ ---> 検証環境
+
+env:
+  TF_VERSION: 1.8.0
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  AWS_IAM_ROLE_ARN: ${{ secrets.AWS_IAM_ROLE_ARN }}
+
+  WORK_DIR: src/terraform/dev
+
+  SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+  SLACK_USERNAME: GitHub Actions
+  SLACK_SUCCESS_MESSAGE: "検証環境のTerrafomのデプロイが完了しました。"
+  SLACK_FAILURE_MESSAGE: "検証環境のTerrafomのデプロイに失敗しました。"
+
+jobs:
+  terraform:
+    name: terraform
+    runs-on: ubuntu-22.04
+    permissions:
+      id-token: write
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      # 入力値チェック
+      - name: Target validate
+        if: ${{ github.event.inputs.env != 'develop' && github.event_name != 'push' }}
+        run: exit 1
+      
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ env.AWS_IAM_ROLE_ARN }}
+          role-session-name: GitHubActions-${{ github.run_id }}
+
+      - name: Terraform setup
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform init
+        id: init
+        working-directory: ${{ env.WORK_DIR }}
+        run: terraform init
+
+      - name: Terraform apply
+        id: apply
+        working-directory: ${{ env.WORK_DIR }}
+        run: terraform apply -auto-approve
+      
+      - uses: actions/github-script@v6
+        if: github.event_name == 'pull_request'
+        env:
+          APPLY: "terraform\n${{ steps.apply.outputs.stdout }}"
+        with:
+          script: |
+            const outputs = process.env.APPLY.split('\n');
+            const summary = outputs.slice(outputs.length - 3).join('\n');
+            github.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `#### Terraform apply\n\`\`\`\n${summary}\n\`\`\``,
+            });
+      
+      # Slack通知
+      - name: Slack notification on success
+        if: ${{ success() }}
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_USERNAME: ${{ env.SLACK_USERNAME }}
+          SLACK_COLOR: good
+          SLACK_MESSAGE: ${{ env.SLACK_SUCCESS_MESSAGE }}
+
+      - name: Slack notification on failure
+        if: ${{ failure() }}
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_USERNAME: ${{ env.SLACK_USERNAME }}
+          SLACK_COLOR: danger
+          SLACK_MESSAGE: ${{ env.SLACK_FAILURE_MESSAGE }}
