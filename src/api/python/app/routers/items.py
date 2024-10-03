@@ -18,21 +18,23 @@ def get_items():
 @router.get("/{item_id}")
 def get_item(item_id: str):
     try:
-        item = Item.get('item', item_id)
+        item = Item.query(
+            'item',
+            Item.SK.startswith(f'item_{item_id}_')
+        )
         
-        return item.to_dict() if item else None
+        return [item.to_dict() for item in item][0]
     except Exception as e:
         return {"error": str(e)}
 
-@router.get("")
-def get_category_items(category: str = Query(..., description="Category")):
+@router.get("/category/{category_id}")
+def get_category_items(category_id: str):
     try:
-        if category == 'all':
-            category = None
         
         items = Item.query(
             'item',
-            Item.SK.startswith(f'category_{category}') if category else None 
+            Item.SK.startswith(f'item_'),
+            Item.category_id == category_id
         )
         
         return [item.to_dict() for item in items]

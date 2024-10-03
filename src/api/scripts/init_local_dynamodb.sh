@@ -33,10 +33,10 @@ aws dynamodb put-item --table-name local_master \
   --item '
   {
     "PK": {"S": "item"},
-    "SK": {"S": "item_1_category_食料品"},
+    "SK": {"S": "item_1_category_1"},
     "id": {"S": "1"},
     "name": {"S": "お米"},
-    "category": {"S": "食料品"},
+    "category_id": {"S": "1"},
     "description": {"S": "お米です"},
     "price": {"N": "1000"}
   }';

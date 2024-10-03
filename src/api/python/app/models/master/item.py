@@ -5,7 +5,7 @@ from . import MasterTableModel
 class Item(MasterTableModel):
 
     id = UnicodeAttribute()
-    category = UnicodeAttribute()
+    category_id = UnicodeAttribute()
     name = UnicodeAttribute()
     description = UnicodeAttribute()
     price = NumberAttribute()
