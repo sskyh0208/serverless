@@ -5,7 +5,7 @@ from ..models import Log
 router = APIRouter()
 
 @router.get("")
-def get_logs(
+async def get_logs(
     type: str = Query(None, description="ログの種類"),
     start_at: int = Query(None, description="開始日時"),
     end_at: int = Query(None, description="終了日時")

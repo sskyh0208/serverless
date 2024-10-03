@@ -5,7 +5,7 @@ from ..models import Item
 router = APIRouter()
 
 @router.get("")
-def get_items():
+async def get_items():
     try:
         items = Item.query(
             'item'
@@ -16,7 +16,7 @@ def get_items():
         return {"error": str(e)}
 
 @router.get("/{item_id}")
-def get_item(item_id: str):
+async async def get_item(item_id: str):
     try:
         item = Item.query(
             'item',
@@ -28,7 +28,7 @@ def get_item(item_id: str):
         return {"error": str(e)}
 
 @router.get("/category/{category_id}")
-def get_category_items(category_id: str):
+async def get_category_items(category_id: str):
     try:
         
         items = Item.query(
