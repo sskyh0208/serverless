@@ -3,7 +3,9 @@ import os
 ENV_NAME = os.environ['ENV_NAME']
 AWS_REGION = os.environ['AWS_REGION']
 
-DYNAMODB_ENDPOINT_URL = os.getenv('DYNAMODB_ENDPOINT_URL', None)
+AWS_DYNAMODB_ENDPOINT_URL = os.getenv('AWS_DYNAMODB_ENDPOINT_URL', None)
+
+AWS_S3_BUCKET_NAME = os.getenv('AWS_S3_BUCKET_NAME')
 
 ALLOW_ORIGINS = os.environ['ALLOW_ORIGINS'].split(',')
 ALLOW_CREDENTIALS = os.environ['ALLOW_CREDENTIALS'].lower() == 'true'

@@ -5,10 +5,20 @@ from ..models import Item
 router = APIRouter()
 
 @router.get("")
-async def get_items():
+async def get_items(
+    category_id: str = Query(None, description="カテゴリー ID"),
+):
+    conditions = [
+        'item',
+        Item.SK.startswith(f'item_')
+    ]
+    
+    if category_id:
+        conditions.append(Item.category_id == category_id)
+        
     try:
         items = Item.query(
-            'item'
+            *conditions
         )
         
         return [item.to_dict() for item in items]
@@ -16,7 +26,7 @@ async def get_items():
         return {"error": str(e)}
 
 @router.get("/{item_id}")
-async async def get_item(item_id: str):
+async def get_item(item_id: str):
     try:
         item = Item.query(
             'item',
@@ -24,19 +34,5 @@ async async def get_item(item_id: str):
         )
         
         return [item.to_dict() for item in item][0]
-    except Exception as e:
-        return {"error": str(e)}
-
-@router.get("/category/{category_id}")
-async def get_category_items(category_id: str):
-    try:
-        
-        items = Item.query(
-            'item',
-            Item.SK.startswith(f'item_'),
-            Item.category_id == category_id
-        )
-        
-        return [item.to_dict() for item in items]
     except Exception as e:
         return {"error": str(e)}
