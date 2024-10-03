@@ -1,5 +1,5 @@
 import axios from "axios";
-import { API_URL } from "@/lib/api-endpoints";
+import { API_URL } from "./api-endpoints";
 
 // クレデンシャルを含まないリクエスト用（ログイン前など）
 const publicAxios = axios.create({

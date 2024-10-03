@@ -32,7 +32,7 @@ def upload_file_to_s3(file_name, bucket, object_name=None):
         object_name (str): アップロードするオブジェクト名 (省略可)
         
     Returns:
-        str: アップロード結果メッセージ
+        dict: アップロード結果 (成功時はオブジェクト名、失敗時はNone)
     """
     
     s3_client = get_s3_client()
@@ -42,9 +42,11 @@ def upload_file_to_s3(file_name, bucket, object_name=None):
 
     try:
         s3_client.upload_file(file_name, bucket, object_name)
-        return f'{object_name} uploaded to {bucket} successfully.'
+        print(f'{object_name} uploaded to {bucket} successfully.')
+        return {"key": object_name}
     except Exception as e:
-        return f'File upload failed: {str(e)}'
+        print(f'File upload failed: {str(e)}')
+        raise
 
 def download_file_from_s3(bucket, object_name, file_name):
     """
@@ -76,18 +78,18 @@ def check_file_exists_in_s3(bucket, object_name):
         object_name (str): チェックするオブジェクト名
         
     Returns:
-        bool: ファイルの存在有無 (True: 存在する, False: 存在しない)
+        dict: チェック結果 (存在する場合はオブジェクト名、存在しない場合はNone)
     """
     
     s3_client = get_s3_client()
     
     try:
         s3_client.head_object(Bucket=bucket, Key=object_name)
-        return True
+        return {"key": object_name}
     except s3_client.exceptions.ClientError as e:
         # ファイルが存在しない場合のエラーコードに基づいてFalseを返す
         if e.response['Error']['Code'] == '404':
-            return False
+            return {"key": None}
         else:
             print(f'File check failed: {str(e)}')
             raise
@@ -109,7 +111,11 @@ def list_files_in_s3(bucket, prefix=""):
     try:
         response = s3_client.list_objects_v2(Bucket=bucket, Prefix=prefix)
         if 'Contents' in response:
-            return [obj['Key'] for obj in response['Contents']]
+            return [{
+                "key": obj["Key"],
+                "size": obj["Size"],
+                "last_modified": obj["LastModified"].strftime('%Y-%m-%d %H:%M:%S')
+            } for obj in response['Contents']]
         else:
             return []
     except Exception as e:
@@ -131,7 +137,7 @@ def delete_file_from_s3(bucket, object_name):
 
     try:
         s3_client.delete_object(Bucket=bucket, Key=object_name)
-        return True
+        return {"key": object_name}
     except Exception as e:
         print(f'File deletion failed: {str(e)}')
-        return False
+        
