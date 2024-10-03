@@ -20,3 +20,6 @@ api:
 	docker compose exec api bash
 sam:
 	docker compose exec sam bash
+
+init-local-dynamodb:
+	docker compose exec api bash -c "bash /scripts/init_local_dynamodb.sh"
