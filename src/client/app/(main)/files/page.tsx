@@ -3,8 +3,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Upload, Trash2 } from "lucide-react";
-import { uploadFile, listFiles, deleteFile } from "@/providers/file-provider";
+import { Upload, Trash2, Download } from "lucide-react";
+import { uploadFile, listFiles, deleteFile, getDownloadUrl } from "@/providers/file-provider";
 import { toast } from 'sonner';
 import { LoadingIcon } from '@/components/LoadingIcon';
 import ConfirmationModal from '@/components/ConfirmationModal';
@@ -95,6 +95,17 @@ export default function FilesPage() {
     }
   };
 
+  const handleDownload = async (fileName: string) => {
+    try {
+      const response = await getDownloadUrl(fileName);
+      const downloadUrl = response.download_url;
+      window.open(downloadUrl, '_blank');
+      toast.success(`ファイルのダウンロードを開始しました: ${fileName}`);
+    } catch (error: any) {
+      toast.error(`ファイルのダウンロードに失敗しました: ${error.message}`);
+    }
+  };
+
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
@@ -147,8 +158,8 @@ export default function FilesPage() {
               <TableRow>
                 <TableHead className="w-[40%]">ファイル名</TableHead>
                 <TableHead className="w-[20%] text-left">サイズ</TableHead>
-                <TableHead className="w-[30%] text-left">最終更新日</TableHead>
-                <TableHead className="w-[10%]"></TableHead>
+                <TableHead className="w-[25%] text-left">最終更新日</TableHead>
+                <TableHead className="w-[15%]"></TableHead>
               </TableRow>
             </TableHeader>
           </Table>
@@ -164,16 +175,26 @@ export default function FilesPage() {
                     <TableRow key={index}>
                       <TableCell className="w-[40%] font-medium">{file.key}</TableCell>
                       <TableCell className="w-[20%] text-left">{formatFileSize(file.size)}</TableCell>
-                      <TableCell className="w-[30%] text-left">{file.last_modified}</TableCell>
-                      <TableCell className="w-[10%]">
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => handleDeleteClick(file.key)}
-                          className="w-full"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                      <TableCell className="w-[25%] text-left">{file.last_modified}</TableCell>
+                      <TableCell className="w-[15%]">
+                        <div className="flex space-x-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDownload(file.key)}
+                            className="flex-1"
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleDeleteClick(file.key)}
+                            className="flex-1"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))

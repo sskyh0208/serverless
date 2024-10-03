@@ -116,6 +116,30 @@ Resources:
             RestApiId: !Ref ApiGateway
             Path: /health_check
             Method: get
+        ItemsGet:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /items
+            Method: get
+        LogsGet:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /logs
+            Method: get
+        FilesGet:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /files
+            Method: get
+        FilesPost:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGateway
+            Path: /files
+            Method: post
       Tags:
         Product: !Ref ProductName
         Environment: !Ref Environment

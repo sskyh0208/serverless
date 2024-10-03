@@ -40,3 +40,15 @@ export const deleteFile = async (fileName: string) => {
     throw error;
   }
 };
+
+export const getDownloadUrl = async (fileName: string) => {
+  try {
+    const response = await publicAxios.get(`${FILES_URL}/download/`,{
+      params: { file_name: fileName },
+    });
+    return response.data;
+  } catch (error) {
+    console.error('File download error:', error);
+    throw error;
+  }
+}
