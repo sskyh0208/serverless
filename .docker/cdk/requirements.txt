@@ -1,0 +1,5 @@
+aws-cdk-lib
+aws-cdk.aws-lambda-python-alpha
+cdk-ecr-deployment
+constructs
+pytest

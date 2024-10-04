@@ -17,22 +17,22 @@ services:
     working_dir: /app/
     # command: npm run dev
 
-  api:
-    container_name: api
+  fastapi:
+    container_name: fastapi
     build:
-      context: ./src/api/python
+      context: ./src/lambda/fastapi
       dockerfile: Dockerfile
       target: dev
     tty: true
     volumes:
       - type: bind
-        source: ./src/api/python
+        source: ./src/lambda/fastapi
         target: /api
       - type: bind
         source: ./.aws
         target: /root/.aws
       - type: bind
-        source: ./src/api/scripts
+        source: ./src/scripts
         target: /scripts
     ports:
       - target: 8080
@@ -41,7 +41,7 @@ services:
         mode: host
     working_dir: /api
     env_file:
-      - ./src/api/python/.env
+      - ./src/lambda/fastapi/.env
     command: sh -c "poetry install && uvicorn app.main:app --host 0.0.0.0 --port 8080 --reload"
 
   dynamodb-local:
@@ -56,23 +56,16 @@ services:
         target: /data
     command: -jar DynamoDBLocal.jar -sharedDb -dbPath /data
 
-  dynamodb-admin:
-    container_name: dynamodb-admin
-    image: aaronshaf/dynamodb-admin
-    ports:
-      - "8001:8001"
-    environment:
-      - DYNAMO_ENDPOINT=http://dynamodb-local:8000
-
-  sam:
-    container_name: sam
+  cdk:
+    container_name: cdk
     build:  
-      context: .docker/sam
+      context: .docker/cdk
       dockerfile: Dockerfile
     volumes: 
-      - ./src:/home/sam/src
+      - ./src/cdk:/home/cdk/src
+      - ./src/lambda:/home/cdk/lambda
       - ./.aws:/root/.aws
-    working_dir: /home/sam/src
+    working_dir: /home/cdk/src
     environment:
       - DOCKER_HOST=tcp://dind:2375
       - DOCKER_DRIVER=overlay
